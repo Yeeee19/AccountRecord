@@ -1,0 +1,46 @@
+buildscript {
+	ext {
+		springBootVersion = '1.5.6.RELEASE'
+//		springBootVersion = '3.0.0'
+	}
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+	}
+}
+
+apply plugin: 'java'
+apply plugin: 'application'
+apply plugin: 'idea'
+apply plugin: 'org.springframework.boot'
+
+mainClassName = 'com.restart1025.springboot.SpringbootApplication'
+//sourceCompatibility = 1.8
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile 'org.springframework.boot:spring-boot-starter-web',
+			'org.springframework.boot:spring-boot-starter-data-jpa',
+			'org.xerial:sqlite-jdbc:3.8.11.2',
+			'org.springframework.boot:spring-boot-devtools',
+			'org.projectlombok:lombok:1.18.16'
+	testCompile('org.springframework.boot:spring-boot-starter-test')
+}
+
+tasks.withType(JavaCompile) {
+	options.encoding = "UTF-8"
+}
+
+jar {
+	baseName = "AccRec"
+	version = "1.0"
+//	sourceCompatibility = JavaVersion.VERSION_17
+	manifest {
+		attributes 'Main-Class': 'com.restart1025.springboot.SpringbootApplication'
+	}
+}

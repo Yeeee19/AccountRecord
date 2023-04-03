@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>帳務紀錄</title>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+
+        <script src="https://unpkg.com/vue@3.2.36/dist/vue.global.js"></script>
+        <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+        <script src="https://momentjs.com/downloads/moment.js"></script>
+        <style>
+            .transparentBackGroundBtn {
+              background-color: transparent;
+              border: none;
+            }
+            .transparentInput {
+              color: black;
+              background-color: transparent;
+              border: none;
+            }
+            .transparentSelect {
+              color: black;
+              background-color: transparent;
+              border: none;
+              appearance:none;
+            }
+        </style>
+    </head>
+    <body>
+        <p>
+            <a href="http://localhost:8080/html/comp.html">公司列表</a>
+        </p>
+        <div id="app" class="container mt-3">
+            <p>
+                搜尋條件
+            </p>
+            <form class="row g-3">
+                <div class="col-auto">
+                    <select class="form-control" v-model="compQuery">
+                        <option></option>
+                        <option v-for="item in compList" :value="item.id">
+                            {{ item.compName }}
+                        </option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="undone" v-model="undoneQuery">
+                        <label class="form-check-label" for="undone">未收款完成</label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="expired" v-model="expiredQuery">
+                        <label class="form-check-label" for="expired">已過期</label>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary" type="button" @click="query()">搜尋</button>
+                </div>
+            </form>
+            <br><br>
+            <p>
+                新增資料
+            </p>
+            <form class="row g-3">
+                <div class="col-auto">
+                    <select class="form-control" v-model="compInput">
+                        <option v-for="item in compList" :value="item.id">
+                            {{ item.compName }}
+                        </option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <input class="form-control" type="text" size="15" v-model="debtInput">　
+                </div>
+                <div class="col-auto">
+                    <input class="form-control" type="text" size="15" v-model="receiveInput">　
+                </div>
+                <div class="col-auto">
+                    <input class="form-control" type="date" size="15" v-model="lastReceiveDateInput" min="1900-01-01" max="2999-01-01">　
+                </div>
+                <div class="col-auto">
+                    <input class="form-control" type="date" size="15" v-model="debtDateInput" min="1900-01-01" max="2999-01-01">　
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary" @click="addRec()">新增紀錄</button>
+                </div>
+            </form>
+            <table class="table table-hover">
+                <tr>
+                    <th>公司名稱</th>
+                    <th>應收帳款</th>
+                    <th>已收帳款</th>
+                    <th>上一次還款日</th>
+                    <th>帳務到期日</th>
+                    <th>編輯</th>
+                </tr>
+                <tr v-for="item in recList">
+                    <td>
+                        <!-- <select class="form-control transparentSelect" v-model="item.compId" :disabled="selectedComp !== item.id"> -->
+                        <select class="transparentSelect" v-model="item.compId" :disabled="selectedComp !== item.id">
+                            <option v-for="i in compList" :value="i.id">
+                                {{ i.compName }}
+                            </option>
+                        </select>
+                    </td>
+                    <td>
+                        <input class="transparentInput" v-model="item.debt" :disabled="selectedComp !== item.id"> 
+                    </td>
+                    <td>
+                        <input class="transparentInput" v-model="item.receive" :disabled="selectedComp !== item.id"> 
+                    </td>
+                    <td>
+                        <input class="transparentInput" type="date" v-model="item.lastReceiveDate" :disabled="selectedComp !== item.id">
+                    </td>
+                    <td>
+                        <input class="transparentInput" type="date" v-model="item.debtDate" :disabled="selectedComp !== item.id">
+                    </td>
+                    <td>
+                        <button class="transparentBackGroundBtn" @click="showEditBtn(item)">
+                            <img src="edit.png">
+                        </button>
+                        <button class="transparentBackGroundBtn" v-if="selectedComp === item.id" @click="editRec(item)">
+                            <img src="check.png">
+                        </button>
+                        <button class="transparentBackGroundBtn" v-if="selectedComp === item.id" @click="deleteRec(item)">
+                            <img src="delete.png">
+                        </button>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <script>
+            let compMap = new Map();
+
+            const VueApp = Vue.createApp({
+                data() {
+                    return {
+                        recList: [],
+                        compList: [],
+                        selectedComp: -1,
+                        compInput: "",
+                        debtInput: "",
+                        receiveInput: "",
+                        lastReceiveDateInput: "",
+                        debtDateInput: "",
+                        compQuery: "",
+                        undoneQuery: "",
+                        expiredQuery: "",
+                    };
+                },
+                async mounted () {
+                    await axios
+                        .get('/getComps')
+                        .then(response => {
+                            this.compList = response.data;
+                            response.data.forEach(i => {
+                                compMap.set(i.id, i.compName);
+                            });
+                        })
+                        .catch(function (error) {console.log(error);});
+
+                    this.getRecs();
+                },
+                methods:{
+                    getRecs(){
+                        axios
+                            .get('/getRecs')
+                            .then(response => {
+                                response.data.forEach(i => {
+                                    i.lastReceiveDate = this.formatDate(new Date(i.lastReceiveDate));
+                                    i.debtDate = this.formatDate(new Date(i.debtDate));
+                                });
+                                this.recList = response.data;
+                            })
+                            .catch(function (error) {console.log(error);});
+                    },
+                    formatDate(date) {
+                        return date.getFullYear() + "-" + (date.getMonth()+1).toString().padStart(2, "0") + "-" + date.getDate().toString().padStart(2, "0");
+                    },
+                    compMapping(compId){
+                        return compMap.get(compId)
+                    },
+                    showEditBtn(item){
+                        this.selectedComp = item.id;
+                    },
+                    addRec(){
+                        if (this.compInput !== "") {
+                            axios
+                                .post('/saveRec', {
+                                    compId: this.compInput,
+                                    debt: this.debtInput,
+                                    receive: this.receiveInput,
+                                    lastReceiveDate: this.lastReceiveDateInput,
+                                    debtDate: this.debtDateInput,
+                                })
+                                .then(response => {
+                                    if (response.status === 200) {
+                                        alert("儲存成功");
+                                    }
+                                })
+                                .catch(function (error) {
+                                    alert("儲存失敗, 請重試或聯絡程式維護人員");
+                                    console.log(error);
+                                });
+                        }
+                    },
+                    editRec(item){
+                        axios
+                            .post('/saveRec', {
+                                id: item.id,
+                                compId: item.compId,
+                                debt: item.debt,
+                                receive: item.receive,
+                                lastReceiveDate: item.lastReceiveDate,
+                                debtDate: item.debtDate,
+                            })
+                            .then(response => {
+                                if (response.status === 200) {
+                                    alert("儲存成功");
+                                    this.selectedComp = -1;
+                                }
+                            })
+                            .catch(function (error) {
+                                alert("儲存失敗, 請重試或聯絡程式維護人員");
+                                console.log(error);
+                            });
+                    },
+                    deleteRec(item){
+                        axios
+                            .post('/deleteRec', {
+                                id: item.id,
+                            })
+                            .then(response => {
+                                if (response.status === 200) {
+                                    alert("刪除成功");
+                                    this.getRecs();
+                                }
+                            })
+                            .catch(function (error) {
+                                alert("刪除失敗, 請重試或聯絡程式維護人員");
+                                console.log(error);
+                            });
+                    },
+                    query(){
+                        axios
+                            .post('/queryRec', {
+                                id: this.compQuery,
+                                undone: this.undoneQuery,
+                                expired: this.expiredQuery,
+                            })
+                            .then(response => {
+                                response.data.forEach(i => {
+                                    i.lastReceiveDate = this.formatDate(new Date(i.lastReceiveDate));
+                                    i.debtDate = this.formatDate(new Date(i.debtDate));
+                                });
+                                this.recList = response.data;
+                            })
+                            .catch(function (error) {
+                                alert("查詢失敗, 請重試或聯絡程式維護人員");
+                                console.log(error);
+                            });
+                    },
+                }
+            }).mount("#app");
+        </script>
+    </body>
+</html>
