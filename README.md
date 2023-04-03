@@ -182,3 +182,6 @@ public class SQLiteDialect extends Dialect {
 ```
 - **配置完成之后即可连接SQLite数据库。**
 - **浏览器地址栏输入http://localhost:8080/springboot/getUsers**即可访问
+---
+- ** http://localhost:8080/html/comp.html
+- ** http://localhost:8080/html/rec.html
